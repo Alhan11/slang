@@ -1,0 +1,59 @@
+from flask import Flask, render_template, request, redirect, url_for
+from flask_pymongo import PyMongo
+
+app = Flask(__name__)
+app.config['MONGO_URI'] = 'mongodb://localhost:27017/your_database_name'
+mongo = PyMongo(app)
+
+# Your existing code for SlangPanameno class...
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+@app.route('/add_word', methods=['GET', 'POST'])
+def add_word():
+    if request.method == 'POST':
+        try:
+            new_slang = {
+                'word': request.form['word'],
+                'meaning': request.form['meaning']
+            }
+            mongo.db.slangs.insert_one(new_slang)
+            return redirect(url_for('msg_done', message="Palabra agregada"))
+        except DuplicateKeyError:
+            return render_template('error.html', error_message="ERROR - La palabra ya existe")
+
+    return render_template('add_word.html')
+
+@app.route('/edit_word', methods=['GET', 'POST'])
+def edit_word():
+    if request.method == 'POST':
+        value_requested = request.form['value_requested']
+        row = get_row(value_requested)
+        if row:
+            try:
+                new_word = request.form['new_word']
+                new_meaning = request.form['new_meaning']
+                mongo.db.slangs.update_one({'_id': row['_id']}, {'$set': {'word': new_word, 'meaning': new_meaning}})
+                return redirect(url_for('msg_done', message="Palabra editada"))
+            except DuplicateKeyError:
+                return render_template('error.html', error_message="ERROR - La palabra ya existe")
+
+        return render_template('error.html', error_message="ERROR: El valor ingresado no existe en la base de datos")
+
+    return render_template('edit_word.html')
+
+# Similarly, you can create routes and views for other functionalities...
+
+def get_row(value_requested):
+    try:
+        if value_requested.isnumeric():
+            return mongo.db.slangs.find_one({'_id': int(value_requested)})
+        else:
+            return mongo.db.slangs.find_one({'word': value_requested})
+    except NoResultFound:
+        return None
+
+if __name__ == '__main__':
+    app.run(debug=True)
