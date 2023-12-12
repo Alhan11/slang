@@ -1,0 +1,59 @@
+from flask import Flask, render_template, request, redirect, url_for
+from sqlalchemy.orm.exc import NoResultFound
+
+app = Flask(__name__)
+
+# Your existing code for SQLAlchemy setup and SlangPanameno class...
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+@app.route('/add_word', methods=['GET', 'POST'])
+def add_word():
+    if request.method == 'POST':
+        try:
+            new_slang = SlangPanameno(request.form['word'], request.form['meaning'])
+            session.add(new_slang)
+            session.commit()
+            return redirect(url_for('msg_done', message="Palabra agregada"))
+        except IntegrityError:
+            session.rollback()
+            return render_template('error.html', error_message="ERROR - La palabra ya existe")
+
+    return render_template('add_word.html')
+
+@app.route('/edit_word', methods=['GET', 'POST'])
+def edit_word():
+    if request.method == 'POST':
+        value_requested = request.form['value_requested']
+        if exist(value_requested):
+            try:
+                new_word = request.form['new_word']
+                new_meaning = request.form['new_meaning']
+                row = get_row(value_requested)
+                row.word = new_word
+                row.meaning = new_meaning
+                session.commit()
+                return redirect(url_for('msg_done', message="Palabra editada"))
+            except IntegrityError:
+                session.rollback()
+                return render_template('error.html', error_message="ERROR - La palabra ya existe")
+
+        return render_template('error.html', error_message="ERROR: El valor ingresado no existe en la base de datos")
+
+    return render_template('edit_word.html')
+
+# Similarly, you can create routes and views for other functionalities...
+
+def get_row(value_requested):
+    try:
+        if value_requested.isnumeric():
+            return session.query(SlangPanameno).filter_by(id=value_requested).one()
+        else:
+            return session.query(SlangPanameno).filter_by(word=value_requested).one()
+    except NoResultFound:
+        return None
+
+if __name__ == '__main__':
+    app.run(debug=True)
